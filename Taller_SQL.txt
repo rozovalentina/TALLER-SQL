@@ -1,0 +1,140 @@
+drop table Movimientos;
+drop table Titulares;
+drop table Cuentas;
+drop table Oficinas;
+drop table Clientes;
+
+create table Clientes (
+codigo_cliente number(3,0),
+nombre varchar2(60),
+apellido varchar2(60),
+fecha_nacimiento date,
+genero char(1),
+fecha_vinculacion date,
+primary key (codigo_cliente)
+);
+
+
+create table Oficinas
+(
+codigo_oficina number (3,0),
+nombre varchar2(60),
+primary key(codigo_oficina)
+);
+
+create table Cuentas
+(
+numero_cuenta number(3,0),
+tipo char(2),
+codigo_oficina number(3,0),
+saldo number(12,2),
+valor_apertura number(12,2),
+primary key(Numero_cuenta),
+foreign key(codigo_oficina) references oficinas (codigo_oficina)
+);
+
+create table Titulares
+(
+codigo_cliente number(3,0),
+numero_cuenta number(3,0),
+foreign key(Codigo_cliente) references clientes (Codigo_cliente),
+foreign key (numero_cuenta) references Cuentas (numero_cuenta)
+);
+
+create table Movimientos
+(
+numero_cuenta number(3,0),
+Numero number(3,0),
+tipo char(2), 
+valor number(10,2),
+fecha_movimiento timestamp,
+foreign key (numero_cuenta) references Cuentas (numero_cuenta),
+check (tipo in ('d','c'))
+);
+
+insert into Clientes values(1,'Pedro','Perez','18/JAN/1980','M','18/JAN/1990');
+insert into Clientes values(2,'Maria','Restrepo','18/FEB/1970','F','18/FEB/1990');
+insert into Clientes values(3,'Juana','Arias','18/MAR/1990','F','18/MAR/1990');
+insert into Clientes values(4,'Carlos','Lozano','18/APR/2000','M','18/APR/2000');
+insert into Clientes values(5,'Esteban','Gonzalez','18/FEB/2001','M','18/FEB/2001');
+insert into Clientes values(6,'John','Hurtado','20/FEB/1970','M','20/FEB/1990');
+insert into Clientes values(7,'Juana','Perez','08/AUG/1950','F','08/AUG/1990');
+
+insert into Oficinas values(10,'Javeriana');
+insert into Oficinas values(20,'Galerias');
+insert into Oficinas values(30,'Portal 80');
+insert into Oficinas values(40,'Teusaquillo');
+
+insert into Cuentas values(100,'A',10,null,0);
+insert into Cuentas values(200,'A',20,null,100);
+insert into Cuentas values(300,'C',10,null,500);
+insert into Cuentas values(400,'C',10,null,1000);
+insert into Cuentas values(500,'A',10,null,100);
+insert into Cuentas values(600,'A',20,null,50);
+
+insert into Movimientos values(100,1,'d',10000,'01-JAN-2000 10:00:23');
+insert into Movimientos values(100,2,'d',25000,'01-FEB-2000 10:05:23');
+insert into Movimientos values(100,3,'c',5000,'01-JAN-2000 10:10:23');
+insert into Movimientos values(400,1,'d',58000,'01-JAN-2000 10:15:23');
+
+insert into Titulares values(1,100);
+insert into Titulares values(1,200);
+insert into Titulares values(2,100);
+insert into Titulares values(2,200);
+insert into Titulares values(3,300);
+insert into Titulares values(4,400);
+insert into Titulares values(5,500);
+insert into Titulares values(6,600);
+/*----------Puntos----------*/
+--1. Consulta
+create or replace view positivo (id, valor) as (
+    select m.numero_cuenta,sum(m.valor)
+    from movimientos m
+    where m.tipo='d'
+    group by m.numero_cuenta
+);
+create or replace view negativo (id, valor) as(
+    select m.numero_cuenta,sum(m.valor)
+    from movimientos m
+    where m.tipo='c'
+    group by m.numero_cuenta
+);
+--2. Vista
+create view Canti_HM_AVG_HM as (
+select Oficinas.nombre,
+      count(CASE Clientes.genero when 'M' then Clientes.genero else null end) as Canti_Hombres,
+      count(CASE Clientes.genero when 'F' then Clientes.genero else null end) as Canti_Mujeres
+      from Titulares left join Clientes on Clientes.codigo_cliente = Titulares.codigo_cliente 
+                     left join Cuentas on Cuentas.numero_cuenta = Titulares.numero_cuenta 
+                     right join Oficinas on Oficinas.codigo_oficina = Cuentas.codigo_oficina
+      group by Oficinas.nombre);
+--3. Consulta
+SELECT  CONCAT (cli.nombre, cli.apellido)full_name, cant_cuentas, fecha_movimiento 
+FROM(SELECT CODIGO_CLIENTE, NOMBRE, APELLIDO
+      FROM clientes) cli INNER JOIN (SELECT titulares.CODIGO_CLIENTE,COUNT(NUMERO_CUENTA) cant_cuentas 
+      FROM titulares GROUP BY titulares.CODIGO_CLIENTE)titu ON cli.CODIGO_CLIENTE=titu.CODIGO_CLIENTE LEFT JOIN
+(SELECT distinct NUMERO,FECHA_MOVIMIENTO FROM movimientos)movi ON movi.NUMERO=cli.CODIGO_CLIENTE;
+--4. Tabla
+create table DIAN( 
+    codigo_cliente integer, 
+    numeroCuenta integer, 
+    saldoCuenta integer, 
+    foreign key (codigo_Cliente) references Clientes(codigo_cliente) 
+); 
+ 
+insert into DIAN(codigo_cliente, numeroCuenta, saldoCuenta) 
+    select a.codigo_cliente, b.numero_Cuenta, b.saldo 
+    from Clientes a, cuentas b, Titulares c 
+    where c.codigo_cliente = a.codigo_cliente;
+--5. Consulta
+select a.nombre  ' ' a.apellido AS CLIENTE ,  
+    b.Numero_cuenta ,  
+    avg(b.saldo) as avg_salary_mes 
+from Clientes a,  
+    Cuentas b,  
+    Titulares c,  
+    Movimientos d 
+where a.codigo_cliente = c.codigo_cliente   
+    and c.numero_cuenta = b.Numero_cuenta 
+group by  a.nombre,a.apellido ,  b.Numero_cuenta 
+having avg(b.saldo) * 3 >= 1000000 ;
